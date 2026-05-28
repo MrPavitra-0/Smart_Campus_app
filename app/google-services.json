@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "412600513239",
+    "project_id": "smart-campus-27",
+    "storage_bucket": "smart-campus-27.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:412600513239:android:5a53a8fd8555a3790ef692",
+        "android_client_info": {
+          "package_name": "com.example.smartcampus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-_lhz9dfbzgj8rCgLK2LZGj301gbHaiU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
