@@ -11,6 +11,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import com.example.smartcampus.data.repository.AssignmentRepositoryImpl
+import com.example.smartcampus.domain.repository.AssignmentRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -33,4 +35,10 @@ abstract class RepositoryModule {
     abstract fun bindChatRepository(
         chatRepositoryImpl: ChatRepositoryImpl
     ): ChatRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAssignmentRepository(
+        assignmentRepositoryImpl: AssignmentRepositoryImpl
+    ): AssignmentRepository
 }
