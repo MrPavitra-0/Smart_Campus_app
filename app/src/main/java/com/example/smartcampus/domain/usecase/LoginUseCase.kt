@@ -1,11 +1,11 @@
 package com.example.smartcampus.domain.usecase
 
-import com.example.smartcampus.domain.model.Message
-import com.example.smartcampus.domain.model.User
-import kotlinx.coroutines.flow.Flow
+import com.example.smartcampus.domain.repository.AuthRepository
+import javax.inject.Inject
 
-interface ChatRepository {
-    fun getMessages(chatId: String): Flow<List<Message>>
-    suspend fun sendMessage(message: Message): Result<Unit>
-    fun getUsers(): Flow<List<User>>
+class LoginUseCase @Inject constructor(
+    private val authRepository: AuthRepository
+) {
+    suspend operator fun invoke(email: String, password: String) =
+        authRepository.login(email, password)
 }

@@ -1,5 +1,6 @@
 package com.example.smartcampus.domain.usecase
 
+
 import com.example.smartcampus.domain.model.Message
 import com.example.smartcampus.domain.repository.ChatRepository
 import javax.inject.Inject
