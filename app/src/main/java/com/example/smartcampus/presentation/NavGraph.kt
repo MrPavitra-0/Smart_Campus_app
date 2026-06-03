@@ -14,6 +14,13 @@ import com.example.smartcampus.presentation.chat.UserListScreen
 import com.example.smartcampus.presentation.dashboard.FacultyDashboardScreen
 import com.example.smartcampus.presentation.dashboard.StudentDashboardScreen
 import com.example.smartcampus.presentation.notice.NoticeScreen
+import com.example.smartcampus.domain.model.User
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.smartcampus.presentation.auth.AuthUiState
+import com.example.smartcampus.presentation.auth.AuthViewModel
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
@@ -36,13 +43,33 @@ fun SmartCampusNavGraph(
     currentUserId: String,
     currentUserName: String,
     currentUserRole: String,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onLoginSuccess: (com.example.smartcampus.domain.model.User) -> Unit
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
         composable(Screen.Login.route) {
+            val authViewModel: AuthViewModel = hiltViewModel()
+            val authState by authViewModel.authState.collectAsState()
+
+            LaunchedEffect(authState) {
+                if (authState is AuthUiState.Success) {
+                    val user = (authState as AuthUiState.Success).user
+                    onLoginSuccess(user)
+                    if (user.role == "faculty") {
+                        navController.navigate(Screen.FacultyDashboard.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Screen.StudentDashboard.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    }
+                }
+            }
+
             LoginScreen(
                 onLoginSuccess = { role ->
                     if (role == "faculty") {
@@ -57,11 +84,32 @@ fun SmartCampusNavGraph(
                 },
                 onNavigateToRegister = {
                     navController.navigate(Screen.Register.route)
-                }
+                },
+                viewModel = authViewModel
             )
         }
 
+
         composable(Screen.Register.route) {
+            val authViewModel: AuthViewModel = hiltViewModel()
+            val authState by authViewModel.authState.collectAsState()
+
+            LaunchedEffect(authState) {
+                if (authState is AuthUiState.Success) {
+                    val user = (authState as AuthUiState.Success).user
+                    onLoginSuccess(user)
+                    if (user.role == "faculty") {
+                        navController.navigate(Screen.FacultyDashboard.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Screen.StudentDashboard.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    }
+                }
+            }
+
             RegisterScreen(
                 onRegisterSuccess = { role ->
                     if (role == "faculty") {
@@ -76,7 +124,8 @@ fun SmartCampusNavGraph(
                 },
                 onNavigateToLogin = {
                     navController.popBackStack()
-                }
+                },
+                viewModel = authViewModel
             )
         }
 
