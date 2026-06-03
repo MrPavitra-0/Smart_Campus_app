@@ -19,6 +19,10 @@ import com.example.smartcampus.domain.model.Assignment
 import com.example.smartcampus.presentation.notice.NoticeViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +116,10 @@ fun AssignmentScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(assignments) { assignment ->
-                            AssignmentCard(assignment = assignment)
+                            AssignmentCard(
+                                assignment = assignment,
+                                userRole = userRole
+                            )
                         }
                     }
                 }
@@ -173,7 +180,11 @@ fun AssignmentScreen(
 }
 
 @Composable
-fun AssignmentCard(assignment: Assignment) {
+fun AssignmentCard(
+    assignment: Assignment,
+    userRole: String
+) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -208,21 +219,44 @@ fun AssignmentCard(assignment: Assignment) {
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "By ${assignment.facultyName}",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = SimpleDateFormat(
-                        "dd MMM yyyy",
-                        Locale.getDefault()
-                    ).format(Date(assignment.postedAt)),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column {
+                    Text(
+                        text = "By ${assignment.facultyName}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = SimpleDateFormat(
+                            "dd MMM yyyy",
+                            Locale.getDefault()
+                        ).format(Date(assignment.postedAt)),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (userRole == "student" && assignment.description.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(assignment.description)
+                            )
+                            context.startActivity(intent)
+                        },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Download",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("View", fontSize = 12.sp)
+                    }
+                }
             }
         }
     }
