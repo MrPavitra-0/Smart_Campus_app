@@ -18,8 +18,32 @@ class AuthRepositoryImpl @Inject constructor(
         return runCatching {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val uid = result.user?.uid ?: throw Exception("Login failed")
-            val doc = firestore.collection("users").document(uid).get().await()
-            doc.data?.toUser() ?: throw Exception("User data not found")
+            return try {
+                val doc = firestore.collection("users").document(uid).get().await()
+                val user = doc.data?.toUser()
+                if (user != null) {
+                    Result.success(user)
+                } else {
+                    // User doc doesn't exist, create basic one
+                    val basicUser = User(
+                        uid = uid,
+                        email = email,
+                        displayName = email.substringBefore("@"),
+                        role = "student"
+                    )
+                    firestore.collection("users").document(uid).set(basicUser.toMap()).await()
+                    Result.success(basicUser)
+                }
+            } catch (e: Exception) {
+                // If Firestore fails, return basic user from Auth
+                val basicUser = User(
+                    uid = uid,
+                    email = email,
+                    displayName = email.substringBefore("@"),
+                    role = "student"
+                )
+                Result.success(basicUser)
+            }
         }
     }
 
