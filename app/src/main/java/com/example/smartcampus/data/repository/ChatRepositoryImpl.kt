@@ -1,5 +1,6 @@
 package com.example.smartcampus.data.repository
 
+import android.net.Uri
 import com.example.smartcampus.data.mapper.toMap
 import com.example.smartcampus.data.mapper.toMessage
 import com.example.smartcampus.data.mapper.toUser
@@ -8,6 +9,7 @@ import com.example.smartcampus.domain.model.User
 import com.example.smartcampus.domain.repository.ChatRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -15,7 +17,8 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class ChatRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage
 ) : ChatRepository {
 
     override fun getMessages(chatId: String): Flow<List<Message>> = callbackFlow {
@@ -40,6 +43,92 @@ class ChatRepositoryImpl @Inject constructor(
         return runCatching {
             firestore.collection("chats")
                 .document(message.chatId)
+                .collection("messages")
+                .add(message.toMap())
+                .await()
+            Unit
+        }
+    }
+
+    override suspend fun sendImageMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        imageUri: Uri
+    ): Result<Unit> {
+        return runCatching {
+            val storageRef = storage.reference
+                .child("chats/$chatId/images/${System.currentTimeMillis()}")
+            storageRef.putFile(imageUri).await()
+            val imageUrl = storageRef.downloadUrl.await().toString()
+            val message = Message(
+                chatId = chatId,
+                senderId = senderId,
+                senderName = senderName,
+                imageUrl = imageUrl,
+                messageType = "image",
+                sentAt = System.currentTimeMillis()
+            )
+            firestore.collection("chats")
+                .document(chatId)
+                .collection("messages")
+                .add(message.toMap())
+                .await()
+            Unit
+        }
+    }
+
+    override suspend fun sendFileMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        fileUri: Uri,
+        fileName: String
+    ): Result<Unit> {
+        return runCatching {
+            val storageRef = storage.reference
+                .child("chats/$chatId/files/${System.currentTimeMillis()}_$fileName")
+            storageRef.putFile(fileUri).await()
+            val fileUrl = storageRef.downloadUrl.await().toString()
+            val message = Message(
+                chatId = chatId,
+                senderId = senderId,
+                senderName = senderName,
+                fileUrl = fileUrl,
+                fileName = fileName,
+                messageType = "file",
+                sentAt = System.currentTimeMillis()
+            )
+            firestore.collection("chats")
+                .document(chatId)
+                .collection("messages")
+                .add(message.toMap())
+                .await()
+            Unit
+        }
+    }
+
+    override suspend fun sendAudioMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        audioUri: Uri
+    ): Result<Unit> {
+        return runCatching {
+            val storageRef = storage.reference
+                .child("chats/$chatId/audio/${System.currentTimeMillis()}.m4a")
+            storageRef.putFile(audioUri).await()
+            val audioUrl = storageRef.downloadUrl.await().toString()
+            val message = Message(
+                chatId = chatId,
+                senderId = senderId,
+                senderName = senderName,
+                audioUrl = audioUrl,
+                messageType = "audio",
+                sentAt = System.currentTimeMillis()
+            )
+            firestore.collection("chats")
+                .document(chatId)
                 .collection("messages")
                 .add(message.toMap())
                 .await()

@@ -1,5 +1,6 @@
 package com.example.smartcampus.presentation.chat
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smartcampus.domain.model.Message
@@ -30,6 +31,9 @@ class ChatViewModel @Inject constructor(
 
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val users: StateFlow<List<User>> = _users
+
+    private val _uploadState = MutableStateFlow<String?>(null)
+    val uploadState: StateFlow<String?> = _uploadState
 
     init {
         fetchUsers()
@@ -71,9 +75,57 @@ class ChatViewModel @Inject constructor(
                 senderId = senderId,
                 senderName = senderName,
                 text = text,
+                messageType = "text",
                 sentAt = System.currentTimeMillis()
             )
             sendMessageUseCase(message)
         }
+    }
+
+    fun sendImage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        imageUri: Uri
+    ) {
+        viewModelScope.launch {
+            _uploadState.value = "Uploading image..."
+            chatRepository.sendImageMessage(chatId, senderId, senderName, imageUri)
+                .onSuccess { _uploadState.value = null }
+                .onFailure { _uploadState.value = "Failed to send image" }
+        }
+    }
+
+    fun sendFile(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        fileUri: Uri,
+        fileName: String
+    ) {
+        viewModelScope.launch {
+            _uploadState.value = "Uploading file..."
+            chatRepository.sendFileMessage(chatId, senderId, senderName, fileUri, fileName)
+                .onSuccess { _uploadState.value = null }
+                .onFailure { _uploadState.value = "Failed to send file" }
+        }
+    }
+
+    fun sendAudio(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        audioUri: Uri
+    ) {
+        viewModelScope.launch {
+            _uploadState.value = "Uploading audio..."
+            chatRepository.sendAudioMessage(chatId, senderId, senderName, audioUri)
+                .onSuccess { _uploadState.value = null }
+                .onFailure { _uploadState.value = "Failed to send audio" }
+        }
+    }
+
+    fun resetUploadState() {
+        _uploadState.value = null
     }
 }
