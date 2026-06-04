@@ -34,9 +34,17 @@ class AssignmentRepositoryImpl @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    override suspend fun postAssignment(assignment: Assignment): Result<Unit> {
+    override suspend fun postAssignment(assignment: Assignment, fileUri: Uri?): Result<Unit> {
         return runCatching {
-            firestore.collection("assignments").add(assignment).await()
+            var fileUrl = ""
+            if (fileUri != null) {
+                val storageRef = storage.reference
+                    .child("assignments/${assignment.facultyId}/${System.currentTimeMillis()}")
+                storageRef.putFile(fileUri).await()
+                fileUrl = storageRef.downloadUrl.await().toString()
+            }
+            val assignmentWithFile = assignment.copy(fileUrl = fileUrl)
+            firestore.collection("assignments").add(assignmentWithFile).await()
             Unit
         }
     }
@@ -70,5 +78,44 @@ class AssignmentRepositoryImpl @Inject constructor(
                 trySend(submissions)
             }
         awaitClose { listener.remove() }
+    }
+
+    override suspend fun deleteAssignment(assignmentId: String): Result<Unit> {
+        return runCatching {
+            firestore.collection("assignments")
+                .document(assignmentId)
+                .delete()
+                .await()
+            Unit
+        }
+    }
+
+    override suspend fun editAssignment(
+        assignmentId: String,
+        title: String,
+        description: String,
+        fileUri: Uri?
+    ): Result<Unit> {
+        return runCatching {
+            var fileUrl = ""
+            if (fileUri != null) {
+                val storageRef = storage.reference
+                    .child("assignments/$assignmentId/${System.currentTimeMillis()}")
+                storageRef.putFile(fileUri).await()
+                fileUrl = storageRef.downloadUrl.await().toString()
+            }
+            val updates = mutableMapOf<String, Any>(
+                "title" to title,
+                "description" to description
+            )
+            if (fileUrl.isNotEmpty()) {
+                updates["fileUrl"] = fileUrl
+            }
+            firestore.collection("assignments")
+                .document(assignmentId)
+                .update(updates)
+                .await()
+            Unit
+        }
     }
 }

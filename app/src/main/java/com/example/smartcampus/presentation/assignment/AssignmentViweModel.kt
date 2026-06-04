@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.net.Uri
 
 sealed class AssignmentUiState {
     object Loading : AssignmentUiState()
@@ -52,7 +53,8 @@ class AssignmentViewModel @Inject constructor(
         title: String,
         description: String,
         facultyId: String,
-        facultyName: String
+        facultyName: String,
+        fileUri: Uri? = null
     ) {
         viewModelScope.launch {
             val assignment = Assignment(
@@ -62,12 +64,47 @@ class AssignmentViewModel @Inject constructor(
                 facultyName = facultyName,
                 postedAt = System.currentTimeMillis()
             )
-            assignmentRepository.postAssignment(assignment)
+            assignmentRepository.postAssignment(assignment, fileUri)
                 .onSuccess {
                     _postState.value = "Assignment created successfully"
                 }
                 .onFailure { error ->
                     _postState.value = error.message ?: "Failed to create assignment"
+                }
+        }
+    }
+
+
+    fun deleteAssignment(assignmentId: String) {
+        viewModelScope.launch {
+            assignmentRepository.deleteAssignment(assignmentId)
+                .onSuccess {
+                    _postState.value = "Assignment deleted"
+                }
+                .onFailure {
+                    _postState.value = "Failed to delete"
+                }
+        }
+    }
+
+    fun editAssignment(
+        assignmentId: String,
+        title: String,
+        description: String,
+        fileUri: Uri? = null
+    ) {
+        viewModelScope.launch {
+            assignmentRepository.editAssignment(
+                assignmentId = assignmentId,
+                title = title,
+                description = description,
+                fileUri = fileUri
+            )
+                .onSuccess {
+                    _postState.value = "Assignment updated"
+                }
+                .onFailure {
+                    _postState.value = "Failed to update"
                 }
         }
     }
