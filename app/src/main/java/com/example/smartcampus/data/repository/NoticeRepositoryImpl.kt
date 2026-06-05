@@ -32,6 +32,25 @@ class NoticeRepositoryImpl @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    override suspend fun editNotice(
+        noticeId: String,
+        title: String,
+        body: String
+    ): Result<Unit> {
+        return runCatching {
+            firestore.collection("notices")
+                .document(noticeId)
+                .update(
+                    mapOf(
+                        "title" to title,
+                        "body" to body
+                    )
+                )
+                .await()
+            Unit
+        }
+    }
+
     override suspend fun postNotice(notice: Notice): Result<Unit> {
         return runCatching {
             firestore.collection("notices").add(notice.toMap()).await()

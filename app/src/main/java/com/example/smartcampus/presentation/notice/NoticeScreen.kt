@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,7 +33,8 @@ fun NoticeScreen(
     val noticeState by viewModel.noticeState.collectAsState()
     val postState by viewModel.postState.collectAsState()
 
-    var showDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf<Notice?>(null) }
     var title by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
 
@@ -56,7 +60,7 @@ fun NoticeScreen(
         },
         floatingActionButton = {
             if (userRole == "faculty") {
-                FloatingActionButton(onClick = { showDialog = true }) {
+                FloatingActionButton(onClick = { showCreateDialog = true }) {
                     Icon(Icons.Default.Add, contentDescription = "Post Notice")
                 }
             }
@@ -112,7 +116,13 @@ fun NoticeScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(notices) { notice ->
-                            NoticeCard(notice = notice)
+                            NoticeCard(
+                                notice = notice,
+                                userRole = userRole,
+                                currentUserId = userId,
+                                onEdit = { showEditDialog = notice },
+                                onDelete = { viewModel.deleteNotice(notice.id) }
+                            )
                         }
                     }
                 }
@@ -120,55 +130,103 @@ fun NoticeScreen(
         }
     }
 
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Post Notice") },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = { Text("Title") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = body,
-                        onValueChange = { body = it },
-                        label = { Text("Message") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3
-                    )
+    // Create Notice Dialog
+    if (showCreateDialog) {
+        NoticeDialog(
+            title = title,
+            body = body,
+            onTitleChange = { title = it },
+            onBodyChange = { body = it },
+            dialogTitle = "Post Notice",
+            onConfirm = {
+                if (title.isNotBlank() && body.isNotBlank()) {
+                    viewModel.postNotice(title, body, userId, userName)
+                    title = ""
+                    body = ""
+                    showCreateDialog = false
                 }
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (title.isNotBlank() && body.isNotBlank()) {
-                            viewModel.postNotice(title, body, userId, userName)
-                            title = ""
-                            body = ""
-                            showDialog = false
-                        }
-                    }
-                ) {
-                    Text("Post")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
-                    Text("Cancel")
-                }
+            onDismiss = {
+                showCreateDialog = false
+                title = ""
+                body = ""
             }
+        )
+    }
+
+    // Edit Notice Dialog
+    showEditDialog?.let { notice ->
+        var editTitle by remember { mutableStateOf(notice.title) }
+        var editBody by remember { mutableStateOf(notice.body) }
+
+        NoticeDialog(
+            title = editTitle,
+            body = editBody,
+            onTitleChange = { editTitle = it },
+            onBodyChange = { editBody = it },
+            dialogTitle = "Edit Notice",
+            onConfirm = {
+                if (editTitle.isNotBlank() && editBody.isNotBlank()) {
+                    viewModel.editNotice(notice.id, editTitle, editBody)
+                    showEditDialog = null
+                }
+            },
+            onDismiss = { showEditDialog = null }
         )
     }
 }
 
 @Composable
-fun NoticeCard(notice: Notice) {
+fun NoticeDialog(
+    title: String,
+    body: String,
+    onTitleChange: (String) -> Unit,
+    onBodyChange: (String) -> Unit,
+    dialogTitle: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(dialogTitle) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = onTitleChange,
+                    label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = body,
+                    onValueChange = onBodyChange,
+                    label = { Text("Message") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) { Text("Confirm") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun NoticeCard(
+    notice: Notice,
+    userRole: String,
+    currentUserId: String,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -178,11 +236,65 @@ fun NoticeCard(notice: Notice) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            Text(
-                text = notice.title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = notice.title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (userRole == "faculty" && notice.authorId == currentUserId) {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = "Options"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Edit") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onEdit()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Delete",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showDeleteConfirm = true
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = notice.body,
@@ -209,5 +321,31 @@ fun NoticeCard(notice: Notice) {
                 )
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Notice") },
+            text = { Text("Are you sure you want to delete this notice?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete()
+                        showDeleteConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

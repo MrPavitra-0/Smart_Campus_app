@@ -63,25 +63,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(
-        chatId: String,
-        senderId: String,
-        senderName: String,
-        text: String
-    ) {
+    fun sendMessage(message: Message) {
         viewModelScope.launch {
-            val message = Message(
-                chatId = chatId,
-                senderId = senderId,
-                senderName = senderName,
-                text = text,
-                messageType = "text",
-                sentAt = System.currentTimeMillis()
-            )
             sendMessageUseCase(message)
         }
     }
-
     fun sendImage(
         chatId: String,
         senderId: String,

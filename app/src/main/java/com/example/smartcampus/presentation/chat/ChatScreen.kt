@@ -296,7 +296,7 @@ fun ChatScreen(
                                         messageText = ""
                                     } else {
                                         val reply = replyingTo
-                                        val message = Message(
+                                        val newMessage = Message(
                                             chatId = chatId,
                                             senderId = currentUserId,
                                             senderName = currentUserName,
@@ -312,7 +312,7 @@ fun ChatScreen(
                                             replyToSender = reply?.senderName ?: "",
                                             sentAt = System.currentTimeMillis()
                                         )
-                                        viewModel.sendMessage(message)
+                                        viewModel.sendMessage(newMessage)
                                         messageText = ""
                                         replyingTo = null
                                         showEmojiPicker = false

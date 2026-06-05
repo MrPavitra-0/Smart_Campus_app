@@ -7,4 +7,6 @@ interface NoticeRepository {
     fun getNotices(): Flow<List<Notice>>
     suspend fun postNotice(notice: Notice): Result<Unit>
     suspend fun deleteNotice(noticeId: String): Result<Unit>
+
+    suspend fun editNotice(noticeId: String, title: String, body: String): Result<Unit>
 }

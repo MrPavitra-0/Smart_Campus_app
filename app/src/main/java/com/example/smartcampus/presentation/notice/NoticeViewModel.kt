@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.example.smartcampus.domain.repository.NoticeRepository
 
 sealed class NoticeUiState {
     object Loading : NoticeUiState()
@@ -21,7 +22,8 @@ sealed class NoticeUiState {
 @HiltViewModel
 class NoticeViewModel @Inject constructor(
     private val getNoticesUseCase: GetNoticesUseCase,
-    private val postNoticeUseCase: PostNoticeUseCase
+    private val postNoticeUseCase: PostNoticeUseCase,
+    private val noticeRepository: NoticeRepository
 ) : ViewModel() {
 
     private val _noticeState = MutableStateFlow<NoticeUiState>(NoticeUiState.Loading)
@@ -64,6 +66,22 @@ class NoticeViewModel @Inject constructor(
                 .onFailure { error ->
                     _postState.value = error.message ?: "Failed to post notice"
                 }
+        }
+    }
+
+    fun deleteNotice(noticeId: String) {
+        viewModelScope.launch {
+            noticeRepository.deleteNotice(noticeId)
+                .onSuccess { _postState.value = "Notice deleted" }
+                .onFailure { _postState.value = "Failed to delete notice" }
+        }
+    }
+
+    fun editNotice(noticeId: String, title: String, body: String) {
+        viewModelScope.launch {
+            noticeRepository.editNotice(noticeId, title, body)
+                .onSuccess { _postState.value = "Notice updated" }
+                .onFailure { _postState.value = "Failed to update notice" }
         }
     }
 
