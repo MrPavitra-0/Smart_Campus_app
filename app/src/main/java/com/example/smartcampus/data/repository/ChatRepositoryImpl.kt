@@ -7,6 +7,7 @@ import com.example.smartcampus.data.mapper.toUser
 import com.example.smartcampus.domain.model.Message
 import com.example.smartcampus.domain.model.User
 import com.example.smartcampus.domain.repository.ChatRepository
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
@@ -131,6 +132,97 @@ class ChatRepositoryImpl @Inject constructor(
                 .document(chatId)
                 .collection("messages")
                 .add(message.toMap())
+                .await()
+            Unit
+        }
+    }
+
+    override suspend fun deleteMessageForMe(
+        chatId: String,
+        messageId: String,
+        userId: String
+    ): Result<Unit> {
+        return runCatching {
+            firestore.collection("chats")
+                .document(chatId)
+                .collection("messages")
+                .document(messageId)
+                .update("deletedFor", FieldValue.arrayUnion(userId))
+                .await()
+            Unit
+        }
+    }
+
+    override suspend fun deleteMessageForEveryone(
+        chatId: String,
+        messageId: String
+    ): Result<Unit> {
+        return runCatching {
+            firestore.collection("chats")
+                .document(chatId)
+                .collection("messages")
+                .document(messageId)
+                .update(
+                    mapOf(
+                        "deletedForAll" to true,
+                        "text" to "This message was deleted",
+                        "imageUrl" to "",
+                        "fileUrl" to "",
+                        "audioUrl" to "",
+                        "messageType" to "text"
+                    )
+                )
+                .await()
+            Unit
+        }
+    }
+
+    override suspend fun editMessage(
+        chatId: String,
+        messageId: String,
+        newText: String
+    ): Result<Unit> {
+        return runCatching {
+            firestore.collection("chats")
+                .document(chatId)
+                .collection("messages")
+                .document(messageId)
+                .update(
+                    mapOf(
+                        "text" to newText,
+                        "isEdited" to true,
+                        "editedAt" to System.currentTimeMillis()
+                    )
+                )
+                .await()
+            Unit
+        }
+    }
+
+    override suspend fun forwardMessage(
+        message: Message,
+        targetChatId: String,
+        senderId: String,
+        senderName: String
+    ): Result<Unit> {
+        return runCatching {
+            val forwardedMessage = message.copy(
+                id = "",
+                chatId = targetChatId,
+                senderId = senderId,
+                senderName = senderName,
+                sentAt = System.currentTimeMillis(),
+                replyToId = "",
+                replyToText = "",
+                replyToSender = "",
+                isEdited = false,
+                deletedForAll = false,
+                deletedFor = emptyList()
+            )
+            firestore.collection("chats")
+                .document(targetChatId)
+                .collection("messages")
+                .add(forwardedMessage.toMap())
                 .await()
             Unit
         }

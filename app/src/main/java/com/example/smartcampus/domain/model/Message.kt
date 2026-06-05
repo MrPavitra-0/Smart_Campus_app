@@ -10,6 +10,13 @@ data class Message(
     val fileUrl: String = "",
     val fileName: String = "",
     val audioUrl: String = "",
-    val messageType: String = "text", // "text", "image", "file", "audio"
+    val messageType: String = "text",
+    val replyToId: String = "",
+    val replyToText: String = "",
+    val replyToSender: String = "",
+    val isEdited: Boolean = false,
+    val editedAt: Long = 0L,
+    val deletedForAll: Boolean = false,
+    val deletedFor: List<String> = emptyList(),
     val sentAt: Long = 0L
 )

@@ -27,5 +27,25 @@ interface ChatRepository {
         senderName: String,
         audioUri: Uri
     ): Result<Unit>
+    suspend fun deleteMessageForMe(
+        chatId: String,
+        messageId: String,
+        userId: String
+    ): Result<Unit>
+    suspend fun deleteMessageForEveryone(
+        chatId: String,
+        messageId: String
+    ): Result<Unit>
+    suspend fun editMessage(
+        chatId: String,
+        messageId: String,
+        newText: String
+    ): Result<Unit>
+    suspend fun forwardMessage(
+        message: Message,
+        targetChatId: String,
+        senderId: String,
+        senderName: String
+    ): Result<Unit>
     fun getUsers(): Flow<List<User>>
 }

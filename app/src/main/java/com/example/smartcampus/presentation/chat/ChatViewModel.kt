@@ -128,4 +128,45 @@ class ChatViewModel @Inject constructor(
     fun resetUploadState() {
         _uploadState.value = null
     }
+
+    fun deleteForMe(chatId: String, messageId: String, userId: String) {
+        viewModelScope.launch {
+            chatRepository.deleteMessageForMe(chatId, messageId, userId)
+        }
+    }
+
+    fun deleteForEveryone(chatId: String, messageId: String) {
+        viewModelScope.launch {
+            chatRepository.deleteMessageForEveryone(chatId, messageId)
+        }
+    }
+
+    fun editMessage(chatId: String, messageId: String, newText: String) {
+        viewModelScope.launch {
+            val canEdit = (chatState.value as? ChatUiState.Success)
+                ?.messages
+                ?.find { it.id == messageId }
+                ?.let { System.currentTimeMillis() - it.sentAt < 5 * 60 * 1000 }
+                ?: false
+            if (canEdit) {
+                chatRepository.editMessage(chatId, messageId, newText)
+                    .onFailure { _uploadState.value = "Failed to edit message" }
+            } else {
+                _uploadState.value = "Cannot edit after 5 minutes"
+            }
+        }
+    }
+
+    fun forwardMessage(
+        message: Message,
+        targetChatId: String,
+        senderId: String,
+        senderName: String
+    ) {
+        viewModelScope.launch {
+            chatRepository.forwardMessage(message, targetChatId, senderId, senderName)
+                .onSuccess { _uploadState.value = "Message forwarded!" }
+                .onFailure { _uploadState.value = "Failed to forward message" }
+        }
+    }
 }
