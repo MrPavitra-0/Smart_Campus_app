@@ -35,6 +35,7 @@ import com.example.smartcampus.domain.model.Message
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.material3.LinearProgressIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -664,24 +665,73 @@ fun MessageBubble(
                         }
                     }
                     "audio" -> {
+                        var isPlaying by remember { mutableStateOf(false) }
+                        var mediaPlayer by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
+                        var progress by remember { mutableStateOf(0f) }
+                        var duration by remember { mutableStateOf(0) }
+
+                        // Update progress while playing
+                        LaunchedEffect(isPlaying) {
+                            while (isPlaying) {
+                                mediaPlayer?.let {
+                                    if (it.isPlaying) {
+                                        progress = it.currentPosition.toFloat() / it.duration.toFloat()
+                                        duration = it.duration
+                                    }
+                                }
+                                kotlinx.coroutines.delay(200)
+                            }
+                        }
+
+                        // Cleanup on dispose
+                        DisposableEffect(message.id) {
+                            onDispose {
+                                mediaPlayer?.apply {
+                                    if (isPlaying) stop()
+                                    release()
+                                }
+                                mediaPlayer = null
+                            }
+                        }
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(4.dp)
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .widthIn(min = 180.dp)
                         ) {
+                            // Play/Pause button
                             IconButton(
                                 onClick = {
-                                    val intent = Intent(
-                                        Intent.ACTION_VIEW,
-                                        Uri.parse(message.audioUrl)
-                                    )
-                                    context.startActivity(intent)
+                                    if (isPlaying) {
+                                        mediaPlayer?.pause()
+                                        isPlaying = false
+                                    } else {
+                                        if (mediaPlayer == null) {
+                                            mediaPlayer = android.media.MediaPlayer().apply {
+                                                setDataSource(message.audioUrl)
+                                                prepareAsync()
+                                                setOnPreparedListener {
+                                                    start()
+                                                    isPlaying = true
+                                                }
+                                                setOnCompletionListener {
+                                                    isPlaying = false
+                                                    progress = 0f
+                                                }
+                                            }
+                                        } else {
+                                            mediaPlayer?.start()
+                                            isPlaying = true
+                                        }
+                                    }
                                 },
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.PlayArrow,
-                                    contentDescription = "Play",
+                                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = if (isPlaying) "Pause" else "Play",
                                     tint = if (isCurrentUser)
                                         MaterialTheme.colorScheme.onPrimary
                                     else
@@ -689,14 +739,38 @@ fun MessageBubble(
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
-                            Text(
-                                text = "Audio message",
-                                fontSize = 13.sp,
-                                color = if (isCurrentUser)
-                                    MaterialTheme.colorScheme.onPrimary
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                // Progress bar
+                                LinearProgressIndicator(
+                                    progress = progress,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .clip(RoundedCornerShape(2.dp)),
+                                    color = if (isCurrentUser)
+                                        MaterialTheme.colorScheme.onPrimary
+                                    else
+                                        MaterialTheme.colorScheme.primary,
+                                    trackColor = if (isCurrentUser)
+                                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
+                                    else
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (duration > 0) {
+                                        val seconds = (duration * progress / 1000).toInt()
+                                        val total = duration / 1000
+                                        "${seconds}s / ${total}s"
+                                    } else "Audio message",
+                                    fontSize = 10.sp,
+                                    color = if (isCurrentUser)
+                                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                     else -> {
