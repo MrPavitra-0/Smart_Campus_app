@@ -9,7 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,20 +24,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.smartcampus.domain.model.Message
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.foundation.clickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,15 +52,30 @@ fun ChatScreen(
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showAttachMenu by remember { mutableStateOf(false) }
     var isRecording by remember { mutableStateOf(false) }
+    var recordingStartTime by remember { mutableStateOf(0L) }
     val listState = rememberLazyListState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Audio recorder
     var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var audioFile by remember { mutableStateOf<File?>(null) }
+    var hasAudioPermission by remember { mutableStateOf(false) }
 
-    // Image picker
+    val checkPermission = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasAudioPermission = granted
+    }
+
+    LaunchedEffect(Unit) {
+        val permission = android.content.pm.PackageManager.PERMISSION_GRANTED
+        hasAudioPermission = androidx.core.content.ContextCompat
+            .checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == permission
+    }
+
     val imageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -72,7 +84,6 @@ fun ChatScreen(
         }
     }
 
-    // File picker
     val fileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -89,7 +100,6 @@ fun ChatScreen(
             viewModel.sendFile(chatId, currentUserId, currentUserName, it, fileName)
         }
     }
-
 
     LaunchedEffect(chatId) {
         viewModel.fetchMessages(chatId)
@@ -137,7 +147,6 @@ fun ChatScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Column {
-                // Emoji Picker
                 if (showEmojiPicker) {
                     EmojiPicker(
                         onEmojiSelected = { emoji ->
@@ -147,7 +156,6 @@ fun ChatScreen(
                     )
                 }
 
-                // Attachment menu
                 if (showAttachMenu) {
                     AttachmentMenu(
                         onImageClick = {
@@ -166,7 +174,6 @@ fun ChatScreen(
                     )
                 }
 
-                // Input bar
                 Surface(tonalElevation = 3.dp) {
                     Row(
                         modifier = Modifier
@@ -209,7 +216,7 @@ fun ChatScreen(
                             )
                         }
 
-                        // Send or Mic button
+                        // Send or Mic
                         if (messageText.isNotBlank()) {
                             IconButton(
                                 onClick = {
@@ -230,95 +237,148 @@ fun ChatScreen(
                                 )
                             }
                         } else {
-                            // Mic button - hold to record
-                            var hasAudioPermission by remember { mutableStateOf(false) }
-
-                            val checkPermission = rememberLauncherForActivityResult(
-                                contract = ActivityResultContracts.RequestPermission()
-                            ) { granted ->
-                                hasAudioPermission = granted
-                            }
-
-                            LaunchedEffect(Unit) {
-                                val permission = android.content.pm.PackageManager.PERMISSION_GRANTED
-                                hasAudioPermission = androidx.core.content.ContextCompat
-                                    .checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == permission
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .background(
-                                        if (isRecording) MaterialTheme.colorScheme.error
-                                        else MaterialTheme.colorScheme.primary,
-                                        CircleShape
-                                    )
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                if (!hasAudioPermission) {
-                                                    checkPermission.launch(Manifest.permission.RECORD_AUDIO)
-                                                    return@detectTapGestures
+                            if (isRecording) {
+                                // Recording controls
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Cancel recording
+                                    IconButton(
+                                        onClick = {
+                                            try {
+                                                mediaRecorder?.apply {
+                                                    stop()
+                                                    release()
                                                 }
-                                                // Start recording
+                                                mediaRecorder = null
+                                                audioFile?.delete()
+                                                audioFile = null
+                                                isRecording = false
+                                            } catch (e: Exception) {
+                                                mediaRecorder = null
+                                                isRecording = false
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Cancel",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+
+                                    Text(
+                                        text = "Recording...",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+
+                                    // Stop and send audio
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.primary,
+                                                CircleShape
+                                            )
+                                            .clickable {
                                                 try {
-                                                    val file = File(
-                                                        context.cacheDir,
-                                                        "audio_${System.currentTimeMillis()}.m4a"
-                                                    )
-                                                    audioFile = file
-                                                    val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                                        MediaRecorder(context)
-                                                    } else {
-                                                        @Suppress("DEPRECATION")
-                                                        MediaRecorder()
+                                                    val recordingDuration =
+                                                        System.currentTimeMillis() - recordingStartTime
+                                                    if (recordingDuration < 1000) {
+                                                        return@clickable
                                                     }
-                                                    recorder.apply {
-                                                        setAudioSource(MediaRecorder.AudioSource.MIC)
-                                                        setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                                                        setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                                                        setOutputFile(file.absolutePath)
-                                                        prepare()
-                                                        start()
-                                                    }
-                                                    mediaRecorder = recorder
-                                                    isRecording = true
-
-                                                    // Wait until finger is lifted
-                                                    tryAwaitRelease()
-
-                                                    // Stop recording
-                                                    recorder.apply {
+                                                    mediaRecorder?.apply {
                                                         stop()
                                                         release()
                                                     }
                                                     mediaRecorder = null
                                                     isRecording = false
-
-                                                    // Send audio
-                                                    val uri = Uri.fromFile(file)
-                                                    viewModel.sendAudio(
-                                                        chatId,
-                                                        currentUserId,
-                                                        currentUserName,
-                                                        uri
-                                                    )
+                                                    audioFile?.let { file ->
+                                                        val uri = androidx.core.content.FileProvider
+                                                            .getUriForFile(
+                                                                context,
+                                                                "${context.packageName}.fileprovider",
+                                                                file
+                                                            )
+                                                        viewModel.sendAudio(
+                                                            chatId,
+                                                            currentUserId,
+                                                            currentUserName,
+                                                            uri
+                                                        )
+                                                    }
                                                 } catch (e: Exception) {
-                                                    mediaRecorder?.release()
                                                     mediaRecorder = null
                                                     isRecording = false
                                                 }
-                                            }
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Send,
+                                            contentDescription = "Send audio",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp)
                                         )
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                                    contentDescription = if (isRecording) "Stop" else "Hold to record",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                                    }
+                                }
+                            } else {
+                                // Mic button - tap to start recording
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.primary,
+                                            CircleShape
+                                        )
+                                        .clickable {
+                                            if (!hasAudioPermission) {
+                                                checkPermission.launch(
+                                                    Manifest.permission.RECORD_AUDIO
+                                                )
+                                                return@clickable
+                                            }
+                                            try {
+                                                val file = File(
+                                                    context.cacheDir,
+                                                    "audio_${System.currentTimeMillis()}.m4a"
+                                                )
+                                                audioFile = file
+                                                val recorder =
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                                        MediaRecorder(context)
+                                                    } else {
+                                                        @Suppress("DEPRECATION")
+                                                        MediaRecorder()
+                                                    }
+                                                recorder.apply {
+                                                    setAudioSource(MediaRecorder.AudioSource.MIC)
+                                                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                                                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                                                    setOutputFile(file.absolutePath)
+                                                    prepare()
+                                                    start()
+                                                }
+                                                mediaRecorder = recorder
+                                                isRecording = true
+                                                recordingStartTime = System.currentTimeMillis()
+                                            } catch (e: Exception) {
+                                                mediaRecorder?.release()
+                                                mediaRecorder = null
+                                                isRecording = false
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = "Tap to record",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -416,7 +476,6 @@ fun EmojiPicker(
                     )
                 }
             }
-            // Emoji grid
             val rows = emojis.chunked(8)
             rows.forEach { row ->
                 Row(
