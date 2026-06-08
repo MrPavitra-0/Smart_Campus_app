@@ -28,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.smartcampus.domain.model.Assignment
 import java.text.SimpleDateFormat
 import java.util.*
+import android.content.Intent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,10 +51,14 @@ fun AssignmentScreen(
     val postState by viewModel.postState.collectAsState()
     val context = LocalContext.current
 
+
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
+            // Take persistent permission
+            val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(it, takeFlags)
             selectedFileUri = it
             selectedFileName = context.contentResolver
                 .query(it, null, null, null, null)
@@ -165,7 +170,7 @@ fun AssignmentScreen(
             selectedFileName = selectedFileName,
             onTitleChange = { title = it },
             onDescriptionChange = { description = it },
-            onAttachFile = { filePickerLauncher.launch("*/*") },
+            onAttachFile = { filePickerLauncher.launch(arrayOf("*/*")) },
             onConfirm = {
                 if (title.isNotBlank() && description.isNotBlank()) {
                     viewModel.postAssignment(

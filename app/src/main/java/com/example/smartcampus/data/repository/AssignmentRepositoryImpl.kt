@@ -38,13 +38,22 @@ class AssignmentRepositoryImpl @Inject constructor(
         return runCatching {
             var fileUrl = ""
             if (fileUri != null) {
+                // Read bytes immediately to avoid URI permission expiry
+                val inputStream = firestore.app.applicationContext
+                    .contentResolver.openInputStream(fileUri)
+                    ?: throw Exception("Cannot open file")
+                val bytes = inputStream.readBytes()
+                inputStream.close()
+
                 val storageRef = storage.reference
                     .child("assignments/${assignment.facultyId}/${System.currentTimeMillis()}")
-                storageRef.putFile(fileUri).await()
+                storageRef.putBytes(bytes).await()
                 fileUrl = storageRef.downloadUrl.await().toString()
             }
             val assignmentWithFile = assignment.copy(fileUrl = fileUrl)
-            firestore.collection("assignments").add(assignmentWithFile).await()
+            firestore.collection("assignments")
+                .add(assignmentWithFile)
+                .await()
             Unit
         }
     }
@@ -99,9 +108,15 @@ class AssignmentRepositoryImpl @Inject constructor(
         return runCatching {
             var fileUrl = ""
             if (fileUri != null) {
+                val inputStream = firestore.app.applicationContext
+                    .contentResolver.openInputStream(fileUri)
+                    ?: throw Exception("Cannot open file")
+                val bytes = inputStream.readBytes()
+                inputStream.close()
+
                 val storageRef = storage.reference
                     .child("assignments/$assignmentId/${System.currentTimeMillis()}")
-                storageRef.putFile(fileUri).await()
+                storageRef.putBytes(bytes).await()
                 fileUrl = storageRef.downloadUrl.await().toString()
             }
             val updates = mutableMapOf<String, Any>(

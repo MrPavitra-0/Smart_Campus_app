@@ -57,6 +57,7 @@ class AssignmentViewModel @Inject constructor(
         fileUri: Uri? = null
     ) {
         viewModelScope.launch {
+            _postState.value = if (fileUri != null) "Uploading file..." else "Posting..."
             val assignment = Assignment(
                 title = title,
                 description = description,
@@ -66,10 +67,10 @@ class AssignmentViewModel @Inject constructor(
             )
             assignmentRepository.postAssignment(assignment, fileUri)
                 .onSuccess {
-                    _postState.value = "Assignment created successfully"
+                    _postState.value = "Assignment posted successfully!"
                 }
                 .onFailure { error ->
-                    _postState.value = error.message ?: "Failed to create assignment"
+                    _postState.value = "Failed: ${error.message}"
                 }
         }
     }
